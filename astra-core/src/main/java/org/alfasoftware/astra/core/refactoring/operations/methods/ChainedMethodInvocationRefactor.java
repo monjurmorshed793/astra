@@ -9,6 +9,7 @@ import org.alfasoftware.astra.core.utils.ASTOperation;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.text.edits.MalformedTreeException;
@@ -55,19 +56,36 @@ public class ChainedMethodInvocationRefactor implements ASTOperation {
 
   private void handleMethodInvocation(MethodInvocation node, ASTRewrite rewriter) {
     // second
-    if (before.get(before.size() - 1).getMethodName().filter(name -> name.test(node.getName().toString())).isPresent() &&
+    int nodeMethodIndex = before.size()-1;
+    if (before.get(nodeMethodIndex).getMethodName().filter(name -> name.test(node.getName().toString())).isPresent() &&
       // wrappedA.get().first()
        node.getExpression() != null && node.getExpression() instanceof MethodInvocation) {
       // first
       MethodInvocation nextMethodInvocation = (MethodInvocation) node.getExpression();
-      if (before.get(before.size() - 2).getMethodName().filter(name -> name.test(nextMethodInvocation.getName().toString())).isPresent()) {
+      nodeMethodIndex-=1;
+      while(nodeMethodIndex>=0){
+        SimpleName methodName = nextMethodInvocation.getName();
+        if (before.get(nodeMethodIndex).getMethodName().filter(name -> name.test(methodName.toString())).isPresent() && nodeMethodIndex==1) {
+          rewriter.set(node, MethodInvocation.EXPRESSION_PROPERTY, nextMethodInvocation.getExpression(), null);
+          String newMethodName = "";
+          String[] newMethodNames = new String[after.size()];
+          for(int i=0; i<after.size(); i++){
+            rewriter.set(node, MethodInvocation.NAME_PROPERTY, node.getAST().newSimpleName(after.get(i)), null);
+
+          }
+        }
+        nodeMethodIndex-=1;
+        if(nodeMethodIndex>0)
+          nextMethodInvocation = (MethodInvocation) nextMethodInvocation.getExpression();
+      }
+/*      if (before.get(before.size() - 2).getMethodName().filter(name -> name.test(nextMethodInvocation.getName().toString())).isPresent()) {
         // TODO #36 make this looped, so we can handle chains of arbitrary length
 
         // change the chain to the "after"
         // TODO #36 handle arbitrary "after" lengths
         rewriter.set(node, MethodInvocation.EXPRESSION_PROPERTY, nextMethodInvocation.getExpression(), null);
         rewriter.set(node, MethodInvocation.NAME_PROPERTY, node.getAST().newSimpleName(after.get(0)), null);
-      }
+      }*/
     }
   }
 }
