@@ -6,10 +6,7 @@ import java.util.List;
 
 import org.alfasoftware.astra.core.matchers.MethodMatcher;
 import org.alfasoftware.astra.core.utils.ASTOperation;
-import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.MethodInvocation;
-import org.eclipse.jdt.core.dom.SimpleName;
+import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.text.edits.MalformedTreeException;
@@ -66,13 +63,19 @@ public class ChainedMethodInvocationRefactor implements ASTOperation {
       while(nodeMethodIndex>=0){
         SimpleName methodName = nextMethodInvocation.getName();
         if (before.get(nodeMethodIndex).getMethodName().filter(name -> name.test(methodName.toString())).isPresent() && nodeMethodIndex==1) {
-          rewriter.set(node, MethodInvocation.EXPRESSION_PROPERTY, nextMethodInvocation.getExpression(), null);
-          String newMethodName = "";
-          String[] newMethodNames = new String[after.size()];
-          for(int i=0; i<after.size(); i++){
-            rewriter.set(node, MethodInvocation.NAME_PROPERTY, node.getAST().newSimpleName(after.get(i)), null);
+          //nextMethodInvocation = (MethodInvocation) node.getExpression();
+          MethodInvocation replacedMethodInvocation  = node.getAST().newMethodInvocation();
+          Expression replacedExpression = ((MethodInvocation) nextMethodInvocation.getExpression()).getExpression();
 
+          replacedMethodInvocation.setExpression(((MethodInvocation) nextMethodInvocation.getExpression()).getExpression());
+          for(int i=0; i<after.size(); i++){
+            MethodInvocation methodInvocation = nextMethodInvocation.getAST().newMethodInvocation();
+            methodInvocation.setName(node.getAST().newSimpleName(after.get(i)));
+
+            nextMethodInvocation.setExpression(methodInvocation.getExpression());
           }
+          rewriter.set(node, MethodInvocation.EXPRESSION_PROPERTY, nextMethodInvocation.getExpression(), null);
+          rewriter.set(node, MethodInvocation.NAME_PROPERTY, node.getAST().newSimpleName(after.get(after.size()-1)), null);
         }
         nodeMethodIndex-=1;
         if(nodeMethodIndex>0)
